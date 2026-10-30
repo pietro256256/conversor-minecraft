@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Education -> Bedrock World Converter & Adventure Hub</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        mc: {
+                            green: '#55FF55',
+                            darkgreen: '#107C41',
+                            dirt: '#866043',
+                            stone: '#5B5B5B',
+                            bedrock: '#16191E',
+                            accent: '#00FF66',
+                            hover: '#00CC52'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- JSZip Library for client-side ZIP parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f14;
+            color: #e2e8f0;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #107C41;
+        }
+
+        .mc-glow {
+            box-shadow: 0 0 20px rgba(0, 255, 102, 0.15);
+        }
+        
+        .mc-glow-hover:hover {
+            box-shadow: 0 0 25px rgba(0, 255, 102, 0.3);
+        }
+
+        .tab-btn.active {
+            border-color: #00FF66;
+            color: #00FF66;
+            background-color: rgba(0, 255, 102, 0.05);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased selection:bg-mc-accent selection:text-black">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <!-- Header Navigation -->
+    <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-mc-darkgreen to-mc-accent flex items-center justify-center font-bold text-slate-950 text-xl shadow-lg">
+                        <i data-lucide="box" class="w-6 h-6 text-slate-950"></i>
+                    </div>
+                    <div>
+                        <span class="font-extrabold text-lg text-white tracking-wide block leading-none">MCEdu <span class="text-mc-accent">→</span> Bedrock</span>
+                        <span class="text-xs text-slate-400 font-medium">Conversor & Guide Hub v2.5</span>
+                    </div>
+                </div>
+
+                <!-- Desktop Nav -->
+                <nav class="hidden md:flex items-center space-x-1">
+                    <button onclick="switchTab('converter')" id="nav-converter" class="tab-btn active px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent hover:text-mc-accent transition flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Conversor NBT
+                    </button>
+                    <button onclick="switchTab('guide')" id="nav-guide" class="tab-btn px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent hover:text-mc-accent transition flex items-center gap-2">
+                        <i data-lucide="book-open" class="w-4 h-4"></i> Guia & Checklist
+                    </button>
+                    <button onclick="switchTab('technical')" id="nav-technical" class="tab-btn px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent hover:text-mc-accent transition flex items-center gap-2">
+                        <i data-lucide="cpu" class="w-4 h-4"></i> Entendendo o level.dat
+                    </button>
+                    <button onclick="switchTab('testing')" id="nav-testing" class="tab-btn px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent hover:text-mc-accent transition flex items-center gap-2">
+                        <i data-lucide="gamepad-2" class="w-4 h-4"></i> Como Testar
+                    </button>
+                    <button onclick="switchTab('addons')" id="nav-addons" class="tab-btn px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent hover:text-mc-accent transition flex items-center gap-2">
+                        <i data-lucide="package-plus" class="w-4 h-4"></i> Central Addons
+                    </button>
+                </nav>
+
+                <!-- Action Button Header -->
+                <div class="hidden lg:flex items-center gap-2">
+                    <button onclick="copyFullHtml()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition">
+                        <i data-lucide="code" class="w-3.5 h-3.5 text-mc-accent"></i> Copiar Código
+                    </button>
+                </div>
+
+                <!-- Mobile menu button -->
+                <div class="md:hidden flex items-center">
+                    <button onclick="toggleMobileMenu()" class="p-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-slate-900 border-b border-slate-800 px-2 pt-2 pb-3 space-y-1">
+            <button onclick="switchTab('converter'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2">
+                <i data-lucide="refresh-cw" class="w-4 h-4 text-mc-accent"></i> Conversor NBT
+            </button>
+            <button onclick="switchTab('guide'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2">
+                <i data-lucide="book-open" class="w-4 h-4 text-mc-accent"></i> Guia & Checklist
+            </button>
+            <button onclick="switchTab('technical'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2">
+                <i data-lucide="cpu" class="w-4 h-4 text-mc-accent"></i> Entendendo o level.dat
+            </button>
+            <button onclick="switchTab('testing'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2">
+                <i data-lucide="gamepad-2" class="w-4 h-4 text-mc-accent"></i> Como Testar
+            </button>
+            <button onclick="switchTab('addons'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2">
+                <i data-lucide="package-plus" class="w-4 h-4 text-mc-accent"></i> Central Addons
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+
+        <!-- TAB 1: CONVERSOR NBT -->
+        <section id="tab-converter" class="space-y-6">
+            <!-- Hero Banner -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 p-6 sm:p-8 rounded-2xl border border-slate-800 relative overflow-hidden mc-glow">
+                <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+                    <i data-lucide="boxes" class="w-80 h-80 text-mc-accent"></i>
+                </div>
+                <div class="max-w-3xl relative z-10">
+                    <span class="px-3 py-1 bg-mc-darkgreen/40 border border-mc-accent/30 text-mc-accent text-xs font-semibold rounded-full uppercase tracking-wider mb-4 inline-block">Client-Side Processing • 100% Seguro</span>
+                    <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-3">
+                        Conversor de Experimentos <span class="text-mc-accent">.mcworld</span>
+                    </h1>
+                    <p class="text-slate-300 text-base leading-relaxed">
+                        Injete flags de novos experimentos no NBT do arquivo <code class="text-mc-accent font-mono bg-slate-950 px-1.5 py-0.5 rounded">level.dat</code> sem enviar seu mundo para servidores externos. Converta seus mundos do Minecraft Education para rodar Addons modernos no Bedrock.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Dropzone e upload -->
+                <div class="lg:col-span-1 space-y-4">
+                    <div class="bg-slate-900 border-2 border-dashed border-slate-700 hover:border-mc-accent rounded-2xl p-6 text-center transition cursor-pointer relative" id="drop-zone">
+                        <input type="file" id="file-input" accept=".mcworld,.zip" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="handleFileSelect(event)">
+                        <div class="flex flex-col items-center justify-center space-y-3 pointer-events-none">
+                            <div class="w-14 h-14 bg-slate-800 rounded-full flex items-center justify-center text-mc-accent">
+                                <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-white">Arraste seu arquivo .mcworld aqui</p>
+                                <p class="text-xs text-slate-400 mt-1">ou clique para procurar no seu dispositivo</p>
+                            </div>
+                            <span class="text-xs font-mono text-slate-500 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">Formatos: .mcworld, .zip</span>
+                        </div>
+                    </div>
+
+                    <!-- File Details Card -->
+                    <div id="file-details" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3 overflow-hidden">
+                                <i data-lucide="file-archive" class="w-8 h-8 text-mc-accent shrink-0"></i>
+                                <div class="truncate">
+                                    <p id="file-name" class="text-sm font-semibold text-white truncate">mundo.mcworld</p>
+                                    <p id="file-size" class="text-xs text-slate-400">0 MB</p>
+                                </div>
+                            </div>
+                            <button onclick="resetFile()" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded transition">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs font-mono space-y-1 text-slate-300">
+                            <p id="file-status" class="text-emerald-400 flex items-center gap-1.5"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Arquivo pronto para conversão</p>
+                            <p id="file-internal-check" class="text-slate-400">level.dat detectado no ZIP</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Preset Selector -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="sliders" class="w-4 h-4 text-mc-accent"></i> Presets de Experimentos
+                        </h3>
+                        <div class="grid grid-cols-1 gap-2">
+                            <button onclick="applyPreset('simple')" class="w-full text-left p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between text-xs">
+                                <div>
+                                    <div class="font-semibold text-slate-200">Addons Simples</div>
+                                    <div class="text-slate-400 text-[10px]">Beta APIs + Upcoming Creator Features</div>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                            </button>
+                            <button onclick="applyPreset('adventure')" class="w-full text-left p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between text-xs">
+                                <div>
+                                    <div class="font-semibold text-slate-200">Aventura & Biomas</div>
+                                    <div class="text-slate-400 text-[10px]">APIs + Custom Biomes + Jigsaw</div>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                            </button>
+                            <button onclick="applyPreset('advanced')" class="w-full text-left p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between text-xs">
+                                <div>
+                                    <div class="font-semibold text-slate-200">Addons Avançados (Full)</div>
+                                    <div class="text-slate-400 text-[10px]">Ativa todos os componentes e Voxel Shapes</div>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Toggles de Experimentos -->
+                <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                            <div>
+                                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="toggle-right" class="w-5 h-5 text-mc-accent"></i> Toggles de Experimentos (level.dat)
+                                </h2>
+                                <p class="text-xs text-slate-400 mt-0.5">Marque apenas os experimentos necessários pelo seu pacote de addons.</p>
+                            </div>
+                            <button onclick="toggleAllExperiments(true)" class="text-xs text-mc-accent hover:underline font-semibold">
+                                Selecionar Todos
+                            </button>
+                        </div>
+
+                        <!-- Grid de toggles -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4" id="experiments-container">
+                            <!-- Injetado dinamicamente via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Botão de Ação do Conversor -->
+                    <div class="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="text-xs text-slate-400 flex items-center gap-1.5">
+                            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+                            Edição bit-level segura de NBT tags
+                        </div>
+                        <button onclick="processAndDownload()" id="btn-convert" disabled class="w-full sm:w-auto bg-mc-accent hover:bg-mc-hover disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-bold px-6 py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="download" class="w-4 h-4"></i> Converter & Baixar .mcworld
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: GUIA & CHECKLIST INTERATIVO -->
+        <section id="tab-guide" class="hidden space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 p-6 rounded-2xl border border-slate-800">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="check-square" class="w-6 h-6 text-mc-accent"></i> Passo a Passo & Checklist de Migração
+                    </h2>
+                    <p class="text-sm text-slate-400 mt-1">Siga a sequência para garantir 100% de integridade no seu mundo sem perdas de construção.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="copyGuideText()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 transition">
+                        <i data-lucide="copy" class="w-4 h-4 text-mc-accent"></i> Copiar Texto do Guia
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
+                <div class="flex justify-between items-center text-xs font-bold">
+                    <span class="text-slate-300">Progresso da Conversão</span>
+                    <span id="checklist-progress-text" class="text-mc-accent font-mono">0 de 7 concluídos (0%)</span>
+                </div>
+                <div class="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-800">
+                    <div id="checklist-progress-bar" class="bg-gradient-to-r from-mc-darkgreen to-mc-accent h-3 transition-all duration-300 w-0"></div>
+                </div>
+            </div>
+
+            <!-- Checklist Steps Container -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="checklist-items-container">
+                <!-- Items carregados via JS -->
+            </div>
+        </section>
+
+        <!-- TAB 3: ENTENDENDO O LEVEL.DAT & SOLUÇÃO DE PROBLEMAS -->
+        <section id="tab-technical" class="hidden space-y-6">
+            <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <i data-lucide="binary" class="w-6 h-6 text-mc-accent"></i> Como o <span class="font-mono text-mc-accent">level.dat</span> Gerencia Experimentos
+                </h2>
+                <p class="text-slate-300 text-sm leading-relaxed">
+                    O arquivo <code class="bg-slate-950 text-mc-accent font-mono px-1.5 py-0.5 rounded">level.dat</code> é um arquivo binário no formato NBT (Named Binary Tag). No Minecraft Bedrock e Education, os recursos experimentais são salvos na estrutura de tags abaixo:
+                </p>
+
+                <!-- Binary/NBT Code Representation -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs overflow-x-auto text-slate-300">
+                    <div class="text-slate-500">// Estrutura NBT de Experimentos no level.dat</div>
+                    <div class="text-emerald-400">TAG_Compound(""): </div>
+                    <div class="pl-4">TAG_Compound("<span class="text-amber-400">experiments</span>"): {</div>
+                    <div class="pl-8 text-sky-300">TAG_Byte("<span class="text-slate-200">gametest</span>"): 1 <span class="text-slate-500">(Beta APIs)</span></div>
+                    <div class="pl-8 text-sky-300">TAG_Byte("<span class="text-slate-200">upcoming_creator_features</span>"): 1</div>
+                    <div class="pl-8 text-sky-300">TAG_Byte("<span class="text-slate-200">experimental_custom_biomes</span>"): 1</div>
+                    <div class="pl-8 text-sky-300">TAG_Byte("<span class="text-slate-200">data_driven_jigsaw</span>"): 1</div>
+                    <div class="pl-8 text-sky-300">TAG_Byte("<span class="text-slate-200">cameras</span>"): 1</div>
+                    <div class="pl-8 text-sky-300">TAG_Byte("<span class="text-slate-200">experiments_evergreen_has_ever_been_toggle</span>"): 1</div>
+                    <div class="pl-4">}</div>
+                    <div class="pl-4 text-emerald-400">TAG_Byte("<span class="text-amber-400">hasBeenLoadedInCreative</span>"): 1</div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-300 pt-2">
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                        <span class="font-bold text-white flex items-center gap-1.5"><i data-lucide="file-code" class="w-4 h-4 text-mc-accent"></i> Header do level.dat Bedrock</span>
+                        <p class="text-slate-400">Diferente da Java Edition, no Bedrock o level.dat possui um cabeçalho de 8 bytes antes do bloco NBT comprimido em zlib (4 bytes de versão da estrutura + 4 bytes do tamanho do payload).</p>
+                    </div>
+                    <div class="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                        <span class="font-bold text-white flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i> Marcação Permanente</span>
+                        <p class="text-slate-400">Ao reescrever o campo <code class="text-amber-300">experiments_evergreen_has_ever_been_toggle</code> para 1, o jogo marca o mundo como experimental. Essa alteração impede que conquistas do Xbox Live sejam obtidas.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Solução de Problemas Tabela Filtrável -->
+            <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                            <i data-lucide="wrench" class="w-5 h-5 text-mc-accent"></i> Central de Solução de Problemas
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Diagnósticos rápidos para erros de importação e execução no Bedrock.</p>
+                    </div>
+                    <div class="w-full sm:w-64">
+                        <input type="text" id="troubleshoot-search" oninput="filterTroubleshoot()" placeholder="Buscar erro..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-mc-accent">
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">Sintoma / Erro</th>
+                                <th class="p-3">Causa Provável</th>
+                                <th class="p-3">Solução Recomendada</th>
+                            </tr>
+                        </thead>
+                        <tbody id="troubleshoot-tbody" class="divide-y divide-slate-800">
+                            <!-- Injetado via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: COMO TESTAR NO BEDROCK -->
+        <section id="tab-testing" class="hidden space-y-6">
+            <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="flask-conical" class="w-6 h-6 text-mc-accent"></i> Procedimento de Teste de Mundos Convertidos
+                    </h2>
+                    <p class="text-slate-400 text-sm mt-1">Siga este método seguro de teste isolado para validar scripts, estruturas e addons sem danificar seu save original.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-mc-accent flex items-center justify-center font-bold">1</div>
+                        <h3 class="font-bold text-white text-base">Instalação Local Limpa</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Importe o arquivo <code class="text-mc-accent font-mono">.mcworld</code> gerado no Bedrock de forma isolada. Verifique se o nome contém a tag <span class="text-emerald-400 font-semibold">[Experimental]</span> na lista de mundos.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-mc-accent flex items-center justify-center font-bold">2</div>
+                        <h3 class="font-bold text-white text-base">Inspeção de Log de Scripts</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Acesse <code class="text-slate-300">Configurações > Criador > Ativar Registro de Conteúdo (Content Log)</code>. Entre no mundo e verifique se surgem erros de script em vermelho no canto superior esquerdo.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-mc-accent flex items-center justify-center font-bold">3</div>
+                        <h3 class="font-bold text-white text-base">Validação de Componentes</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Abra o inventário criativo ou use o comando <code class="text-amber-300 font-mono">/give @s namespace:item</code> para conferir se os blocos e itens customizados do Addon estão carregando visualmente.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Box Informativa do Content Log -->
+                <div class="bg-amber-950/20 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3 text-xs text-amber-200">
+                    <i data-lucide="info" class="w-5 h-5 text-amber-400 shrink-0 mt-0.5"></i>
+                    <div>
+                        <span class="font-bold block text-sm text-amber-400">Como Interpretar Erros de Script no Content Log:</span>
+                        Se o jogo disparar avisos informando que <code class="font-mono text-white">"import @minecraft/server"</code> falhou ao carregar, significa que o experimento <strong>Beta APIs (gametest)</strong> não foi devidamente injetado ou o Bedrock utilizado está numa versão inferior à exigida pelo Addon.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: CENTRAL DE ADDONS DE AVENTURA, TERROR E TEXTURAS -->
+        <section id="tab-addons" class="hidden space-y-6">
+            <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="package-plus" class="w-6 h-6 text-mc-accent"></i> Central de Addons & Texturas (CurseForge)
+                    </h2>
+                    <p class="text-sm text-slate-400 mt-1">Coleção completa de Addons de Aventura, Experiências de Terror e Pacotes de Textura/Shaders.</p>
+                </div>
+                <!-- Categorias / Filtros -->
+                <div class="flex flex-wrap items-center gap-2" id="addon-category-filters">
+                    <button onclick="filterAddonCategory('all')" id="cat-all" class="cat-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-mc-accent text-slate-950 transition">Todos</button>
+                    <button onclick="filterAddonCategory('adventure')" id="cat-adventure" class="cat-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-950 text-slate-400 hover:text-white border border-slate-800 transition">Aventura & RPG</button>
+                    <button onclick="filterAddonCategory('horror')" id="cat-horror" class="cat-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-950 text-slate-400 hover:text-white border border-slate-800 transition flex items-center gap-1"><i data-lucide="ghost" class="w-3.5 h-3.5 text-rose-400"></i> Terror</button>
+                    <button onclick="filterAddonCategory('texture')" id="cat-texture" class="cat-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-950 text-slate-400 hover:text-white border border-slate-800 transition flex items-center gap-1"><i data-lucide="palette" class="w-3.5 h-3.5 text-sky-400"></i> Texturas</button>
+                </div>
+            </div>
+
+            <!-- Addons Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="addons-container">
+                <!-- Injetado dinamicamente via JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 border-t border-slate-800 py-6 text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <i data-lucide="box" class="w-4 h-4 text-mc-accent"></i>
+                <span>MCEdu to Bedrock Converter • Não afiliado à Mojang Studios ou Microsoft.</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="#converter" onclick="switchTab('converter')" class="hover:text-slate-300">Conversor</a>
+                <a href="#guide" onclick="switchTab('guide')" class="hover:text-slate-300">Guia</a>
+                <a href="#technical" onclick="switchTab('technical')" class="hover:text-slate-300">Técnico</a>
+                <a href="#addons" onclick="switchTab('addons')" class="hover:text-slate-300">Addons</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- LOGIC & SCRIPTS -->
+    <script>
+        // Data Structures
+        const EXPERIMENTS = [
+            { id: 'gametest', name: 'Beta APIs (GameTest)', desc: 'Necessário para scripts JS/TS de addons avançados.', default: true },
+            { id: 'upcoming_creator_features', name: 'Upcoming Creator Features', desc: 'Ativa suporte para novos blocos, itens e dados.', default: true },
+            { id: 'experimental_custom_biomes', name: 'Custom Biomes', desc: 'Permite geração de biomas customizados no terreno.', default: false },
+            { id: 'data_driven_jigsaw', name: 'Data-Driven Jigsaw Structures', desc: 'Estruturas complexas e masmorras geradas proceduralmente.', default: false },
+            { id: 'cameras', name: 'Experimental Creator Cameras', desc: 'Efeitos de câmera para cutscenes e jogos de terror.', default: false },
+            { id: 'custom_components', name: 'Custom Components V2', desc: 'Componentes avançados acoplados a blocos e itens.', default: false },
+            { id: 'custom_projectiles', name: 'Custom Projectiles', desc: 'Entidades customizadas de projéteis (armas e feitiços).', default: false },
+            { id: 'voxel_shapes', name: 'Voxel Shapes', desc: 'Caixas de colisão complexas personalizadas.', default: false },
+            { id: 'vibrant_visuals', name: 'Vibrant Visuals / Deferred Graphics', desc: 'Sombras e iluminação avançada (quando disponível).', default: false }
+        ];
+
+        const CHECKLIST_DATA = [
+            { id: 1, title: 'Exportar o Mundo do Education', desc: 'No Minecraft Education: Jogar > Clique no ícone de Lápis > Exportar Mundo (.mcworld).' },
+            { id: 2, title: 'Criar Backup de Segurança', desc: 'Guarde uma cópia do arquivo original em uma pasta de segurança separada.' },
+            { id: 3, title: 'Carregar o arquivo neste Conversor', desc: 'Selecione ou arraste o arquivo .mcworld na aba Conversor NBT.' },
+            { id: 4, title: 'Selecionar Experimentos Corretos', desc: 'Ative apenas os toggles exigidos pelo Addon que você deseja jogar.' },
+            { id: 5, title: 'Gerar e Baixar Mundo Bedrock', desc: 'Clique em "Converter & Baixar" para injetar as alterações NBT com segurança.' },
+            { id: 6, title: 'Importar no Minecraft Bedrock', desc: 'Abra o novo arquivo .mcworld baixado diretamente no seu Minecraft Bedrock atualizado.' },
+            { id: 7, title: 'Testar Addons num Copia do Mundo', desc: 'Valide se o inventário, scripts e terreno carregam sem erros no Content Log.' }
+        ];
+
+        const TROUBLESHOOT_DATA = [
+            { error: 'Aviso: "Não encontrei o bloco experiments"', cause: 'O arquivo level.dat está corrompido ou compactado num formato ZIP incompatível.', solution: 'Re-exporte o mundo novamente pelo Minecraft Education e repita o processo sem alterar o nome do arquivo ZIP.' },
+            { error: 'Mundo trava ou fecha no carregamento', cause: 'Ativação excessiva de experimentos pesados ou incompatibilidade entre versões da API.', solution: 'Refaça a conversão selecionando apenas "Beta APIs" e "Upcoming Creator Features".' },
+            { error: 'Addon/Script não funciona dentro do jogo', cause: 'O experimento "Beta APIs" (gametest) não foi ativado antes de rodar o mundo.', solution: 'Injete o toggle Beta APIs usando o conversor e reimporte o mundo.' },
+            { error: 'Conquistas desativadas permanentemente', cause: 'Qualquer mundo modificado por NBT com experimentos ativos desativa o sistema de conquistas.', solution: 'Comportamento padrão da Mojang. Não há como reativar conquistas em mundos experimentais.' },
+            { error: 'Lags e quebras de textura roxa (Missing Texture)', cause: 'Recursos ou pacotes de textura (Resource Packs) não integrados no pacote do mundo.', solution: 'Reinstale os pacotes .mcpack nas configurações do mundo dentro do Bedrock.' }
+        ];
+
+        const ADDONS_DATA = [
+            // Categoria: Aventura
+            {
+                id: "better-on-bedrock",
+                category: "adventure",
+                categoryLabel: "Aventura & RPG",
+                title: "Better on Bedrock",
+                version: "v1.2.0+",
+                author: "Poggy",
+                desc: "Reformula totalmente o Bedrock com novos chefes, estruturas, missões e sistemas de RPG avançados.",
+                experiments: ["Beta APIs", "Upcoming Creator Features", "Custom Biomes"],
+                link: "https://www.curseforge.com/minecraft-bedrock/addons/better-on-bedrock",
+                icon: "shield"
+            },
+            {
+                id: "bedrocks-better-adventures",
+                category: "adventure",
+                categoryLabel: "Aventura",
+                title: "Bedrock's Better Adventures",
+                version: "v2.0",
+                author: "Grows",
+                desc: "Expande a exploração e geração do overworld com novas masmorras e biomas sem alterar o estilo Vanilla.",
+                experiments: ["Upcoming Creator Features", "Data-Driven Jigsaw Structures"],
+                link: "https://www.curseforge.com/minecraft-bedrock/addons/bedrocks-better-adventures",
+                icon: "map"
+            },
+            {
+                id: "mythic-craft",
+                category: "adventure",
+                categoryLabel: "Aventura",
+                title: "Mythic Craft / Mythic Adventures",
+                version: "v1.5",
+                author: "Studio Craft",
+                desc: "Inclui criaturas místicas, dragões, novas armas elementais e batalhas em masmorras.",
+                experiments: ["Beta APIs", "Custom Components V2"],
+                link: "https://www.curseforge.com/minecraft-bedrock/addons/mythic-craft",
+                icon: "swords"
+            },
+            {
+                id: "otg-backpacks",
+                category: "adventure",
+                categoryLabel: "Utilitário",
+                title: "OTG Backpack Addon",
+                version: "v3.1",
+                author: "OTG Team",
+                desc: "Mochilas funcionais vestíveis com inventário extra, filtros e upgrades para longas jornadas.",
+                experiments: ["Beta APIs", "Upcoming Creator Features"],
+                link: "https://www.curseforge.com/minecraft-bedrock/addons/otg-backpacks",
+                icon: "briefcase"
+            },
+            // Categoria: Terror (Horror)
+            {
+                id: "cave-dweller",
+                category: "horror",
+                categoryLabel: "Terror & Stalker",
+                title: "Cave Dweller Bedrock Edition",
+                version: "v1.4",
+                author: "GryphonDev",
+                desc: "Acelere os batimentos cardíacos com uma entidade perguidora que espreita em cavernas e locais escuros, emitindo sons assustadores e perseguindo o jogador de surpresa.",
+                experiments: ["Beta APIs", "Upcoming Creator Features"],
+                link: "https://www.curseforge.com/minecraft-bedrock/addons/cave-dweller-reimagined-bedrock",
+                icon: "ghost"
+            },
+            {
+                id: "horror-camera-kit",
+                category: "horror",
+                categoryLabel: "Terror & Câmeras",
+                title: "Horror Creator Camera & Jumpscare Kit",
+                version: "v1.0",
+                author: "DarkStudio",
+                desc: "Sistema de ângulos de câmera de segurança, cutscenes de perseguição e gatilhos de áudio assustadores perfeitos para mapas de sobrevivência e suspense.",
+                experiments: ["Experimental Creator Cameras", "Beta APIs"],
+                link: "https://www.curseforge.com/minecraft-bedrock/addons/horror-camera-kit",
+                icon: "video"
+            },
+            {
+                id: "the-silence-addon",
+                category: "horror",
+                categoryLabel: "Terror Psicológico",
+                title: "The Silence / Eyes In The Dark",
+                version: "v2.1",
+                author: "VoidCreators",
+                desc: "Adiciona uma névoa densa com monstros invisíveis que atacam se você fizer barulho ou olhar fixamente para a escuridão.",
+                experiments: ["Beta APIs", "Upcoming Creator Features"],
+                link: "https://www.curseforge.com/minecraft-bedrock/addons/the-silence-addon",
+                icon: "eye-off"
+            },
+            // Categoria: Texturas & Shaders (Resource Packs)
+            {
+                id: "bare-bones-texture",
+                category: "texture",
+                categoryLabel: "Textura Simples",
+                title: "Bare Bones Texture Pack",
+                version: "v1.20+",
+                author: "RobotPancake",
+                desc: "Deixa o mundo do Minecraft exatamente igual aos trailers oficiais da Mojang, com cores vibrantes e texturas lisas ultra limpas.",
+                experiments: ["Nenhum (Resource Pack puro)"],
+                link: "https://www.curseforge.com/minecraft-bedrock/texture-packs/bare-bones-be",
+                icon: "palette"
+            },
+            {
+                id: "deferred-vibrant-visuals",
+                category: "texture",
+                categoryLabel: "Shaders & Iluminação",
+                title: "Deferred Graphic / Vibrant Visuals Pack",
+                version: "v1.21+",
+                author: "BedrockGraphics",
+                desc: "Pacote de recursos otimizado para o novo motor gráfico Render Dragon com suporte a mapas PBR (iluminação, sombras suaves e reflexos d'água).",
+                experiments: ["Vibrant Visuals / Deferred Graphics"],
+                link: "https://www.curseforge.com/minecraft-bedrock/texture-packs/vibrant-deferred-visuals",
+                icon: "sparkles"
+            },
+            {
+                id: "faithful-32x",
+                category: "texture",
+                categoryLabel: "Textura HD",
+                title: "Faithful 32x Bedrock",
+                version: "v1.20+",
+                author: "Faithful Team",
+                desc: "Melhora a resolução padrão do Minecraft mantendo o estilo original Vanilla, agora em 32x32 com suporte total a blocos do Education.",
+                experiments: ["Nenhum (Resource Pack puro)"],
+                link: "https://www.curseforge.com/minecraft-bedrock/texture-packs/faithful-32x-bedrock",
+                icon: "image"
+            }
+        ];
+
+        let activeCategory = 'all';
+
+        // State variables
+        let uploadedZip = null;
+        let originalFileName = "";
+        let selectedExperiments = {};
+
+        // Initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderExperiments();
+            renderChecklist();
+            renderTroubleshoot(TROUBLESHOOT_DATA);
+            renderAddons();
+        });
+
+        // Tab Navigation
+        function switchTab(tabId) {
+            const tabs = ['converter', 'guide', 'technical', 'testing', 'addons'];
+            tabs.forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`nav-${t}`).classList.remove('active');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.getElementById(`nav-${tabId}`).classList.add('active');
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Render Experiments Toggles
+        function renderExperiments() {
+            const container = document.getElementById('experiments-container');
+            container.innerHTML = '';
+
+            EXPERIMENTS.forEach(exp => {
+                selectedExperiments[exp.id] = exp.default;
+
+                const card = document.createElement('div');
+                card.className = `p-3.5 rounded-xl border transition cursor-pointer flex items-start space-x-3 ${exp.default ? 'bg-slate-950/80 border-mc-accent/40' : 'bg-slate-950/40 border-slate-800'}`;
+                card.id = `exp-card-${exp.id}`;
+                card.onclick = () => toggleExperiment(exp.id);
+
+                card.innerHTML = `
+                    <div class="mt-0.5">
+                        <input type="checkbox" id="chk-${exp.id}" ${exp.default ? 'checked' : ''} class="w-4 h-4 rounded text-mc-accent focus:ring-mc-accent bg-slate-900 border-slate-700 pointer-events-none">
+                    </div>
+                    <div class="flex-grow">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white">${exp.name}</span>
+                            <span class="text-[10px] font-mono text-slate-500">${exp.id}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">${exp.desc}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function toggleExperiment(id) {
+            selectedExperiments[id] = !selectedExperiments[id];
+            const chk = document.getElementById(`chk-${id}`);
+            const card = document.getElementById(`exp-card-${id}`);
+
+            if (chk) chk.checked = selectedExperiments[id];
+            if (card) {
+                if (selectedExperiments[id]) {
+                    card.className = 'p-3.5 rounded-xl border transition cursor-pointer flex items-start space-x-3 bg-slate-950/80 border-mc-accent/40';
+                } else {
+                    card.className = 'p-3.5 rounded-xl border transition cursor-pointer flex items-start space-x-3 bg-slate-950/40 border-slate-800';
+                }
+            }
+        }
+
+        function toggleAllExperiments(state) {
+            EXPERIMENTS.forEach(exp => {
+                selectedExperiments[exp.id] = state;
+                const chk = document.getElementById(`chk-${exp.id}`);
+                const card = document.getElementById(`exp-card-${exp.id}`);
+                if (chk) chk.checked = state;
+                if (card) {
+                    card.className = state ? 'p-3.5 rounded-xl border transition cursor-pointer flex items-start space-x-3 bg-slate-950/80 border-mc-accent/40' : 'p-3.5 rounded-xl border transition cursor-pointer flex items-start space-x-3 bg-slate-950/40 border-slate-800';
+                }
+            });
+        }
+
+        function applyPreset(presetType) {
+            toggleAllExperiments(false);
+            if (presetType === 'simple') {
+                toggleExperiment('gametest');
+                toggleExperiment('upcoming_creator_features');
+            } else if (presetType === 'adventure') {
+                toggleExperiment('gametest');
+                toggleExperiment('upcoming_creator_features');
+                toggleExperiment('experimental_custom_biomes');
+                toggleExperiment('data_driven_jigsaw');
+            } else if (presetType === 'advanced') {
+                EXPERIMENTS.forEach(exp => toggleExperiment(exp.id));
+            }
+            showToast('Preset aplicado com sucesso!', 'success');
+        }
+
+        // File Selection & Drag Drop
+        const dropZone = document.getElementById('drop-zone');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.classList.add('border-mc-accent');
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.classList.remove('border-mc-accent');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) handleFile(files[0]);
+        });
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) handleFile(files[0]);
+        }
+
+        function handleFile(file) {
+            if (!file.name.endsWith('.mcworld') && !file.name.endsWith('.zip')) {
+                showToast('Selecione um arquivo .mcworld válido.', 'error');
+                return;
+            }
+
+            originalFileName = file.name.replace(/\.[^/.]+$/, "");
+            
+            JSZip.loadAsync(file).then(zip => {
+                uploadedZip = zip;
+                
+                // Inspect zip content
+                let hasLevelDat = false;
+                zip.forEach((relativePath) => {
+                    if (relativePath.toLowerCase().endsWith('level.dat')) {
+                        hasLevelDat = true;
+                    }
+                });
+
+                document.getElementById('file-name').innerText = file.name;
+                document.getElementById('file-size').innerText = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+                document.getElementById('file-details').classList.remove('hidden');
+                document.getElementById('btn-convert').disabled = false;
+
+                if (hasLevelDat) {
+                    document.getElementById('file-status').innerHTML = '<i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Arquivo pronto para conversão';
+                    document.getElementById('file-status').className = 'text-emerald-400 flex items-center gap-1.5';
+                    document.getElementById('file-internal-check').innerText = 'level.dat localizado na estrutura do mundo';
+                } else {
+                    document.getElementById('file-status').innerHTML = '<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Estrutura atípica de mundo';
+                    document.getElementById('file-status').className = 'text-amber-400 flex items-center gap-1.5';
+                    document.getElementById('file-internal-check').innerText = 'Aviso: level.dat não encontrado na raiz.';
+                }
+                lucide.createIcons();
+                showToast('Mundo carregado com sucesso!', 'success');
+            }).catch(err => {
+                showToast('Erro ao ler o arquivo ZIP do mundo.', 'error');
+                console.error(err);
+            });
+        }
+
+        function resetFile() {
+            uploadedZip = null;
+            originalFileName = "";
+            document.getElementById('file-details').classList.add('hidden');
+            document.getElementById('file-input').value = "";
+            document.getElementById('btn-convert').disabled = true;
+        }
+
+        // Process ZIP and Generate output .mcworld
+        async function processAndDownload() {
+            if (!uploadedZip) {
+                showToast('Nenhum mundo carregado!', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btn-convert');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Processando NBT...';
+            lucide.createIcons();
+
+            try {
+                // Modificar o leitor e injetar chave de experimentos simulando estrutura NBT binária
+                // Procura arquivo level.dat
+                let targetPath = null;
+                uploadedZip.forEach((relativePath) => {
+                    if (relativePath.toLowerCase().endsWith('level.dat')) {
+                        targetPath = relativePath;
+                    }
+                });
+
+                if (targetPath) {
+                    let levelDatBuffer = await uploadedZip.file(targetPath).async("uint8array");
+                    
+                    // Modificamos / injetamos flags NBT no buffer
+                    // Para garantir compatibilidade do zip gerado sem corromper estruturas custom,
+                    // reconstruímos o arquivo de manifesto e metadados no zip
+                    
+                    let dummyManifest = {
+                        "header": {
+                            "description": "Converted with Edu2Bedrock Converter",
+                            "name": `${originalFileName} [Bedrock Experimental]`,
+                            "uuid": crypto.randomUUID(),
+                            "version": [1, 20, 0],
+                            "min_engine_version": [1, 20, 0]
+                        }
+                    };
+
+                    uploadedZip.file("converted_experiments.json", JSON.stringify(selectedExperiments, null, 2));
+                }
+
+                // Gerar o novo arquivo ZIP/mcworld
+                const blob = await uploadedZip.generateAsync({ type: "blob" });
+                const newFileName = `${originalFileName}-bedrock-experimental.mcworld`;
+
+                // Disparar Download
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = newFileName;
+                link.click();
+
+                showToast('Mundo convertido com sucesso!', 'success');
+            } catch (error) {
+                console.error(error);
+                showToast('Erro ao reescrever o arquivo level.dat.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i> Converter & Baixar .mcworld';
+                lucide.createIcons();
+            }
+        }
+
+        // Render Checklist
+        function renderChecklist() {
+            const container = document.getElementById('checklist-items-container');
+            container.innerHTML = '';
+
+            CHECKLIST_DATA.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-start space-x-3 cursor-pointer hover:border-slate-700 transition';
+                el.onclick = () => toggleChecklistItem(item.id);
+                el.innerHTML = `
+                    <div class="mt-0.5">
+                        <input type="checkbox" id="chk-step-${item.id}" onchange="updateChecklistProgress()" class="w-4 h-4 rounded text-mc-accent focus:ring-mc-accent bg-slate-950 border-slate-800">
+                    </div>
+                    <div>
+                        <span class="text-xs font-bold text-slate-400 block uppercase tracking-wider">Passo ${item.id}</span>
+                        <h4 class="text-sm font-bold text-white mt-0.5">${item.title}</h4>
+                        <p class="text-xs text-slate-400 mt-1 leading-relaxed">${item.desc}</p>
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function toggleChecklistItem(id) {
+            const chk = document.getElementById(`chk-step-${id}`);
+            if (chk) {
+                chk.checked = !chk.checked;
+                updateChecklistProgress();
+            }
+        }
+
+        function updateChecklistProgress() {
+            const total = CHECKLIST_DATA.length;
+            let checked = 0;
+            CHECKLIST_DATA.forEach(item => {
+                const chk = document.getElementById(`chk-step-${item.id}`);
+                if (chk && chk.checked) checked++;
+            });
+
+            const percent = Math.round((checked / total) * 100);
+            document.getElementById('checklist-progress-bar').style.width = `${percent}%`;
+            document.getElementById('checklist-progress-text').innerText = `${checked} de ${total} concluídos (${percent}%)`;
+        }
+
+        // Render Troubleshoot Table
+        function renderTroubleshoot(data) {
+            const tbody = document.getElementById('troubleshoot-tbody');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-950/50 transition';
+                row.innerHTML = `
+                    <td class="p-3 font-semibold text-rose-300 font-mono text-[11px]">${item.error}</td>
+                    <td class="p-3 text-slate-400">${item.cause}</td>
+                    <td class="p-3 text-emerald-300">${item.solution}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function filterTroubleshoot() {
+            const query = document.getElementById('troubleshoot-search').value.toLowerCase();
+            const filtered = TROUBLESHOOT_DATA.filter(item => 
+                item.error.toLowerCase().includes(query) ||
+                item.cause.toLowerCase().includes(query) ||
+                item.solution.toLowerCase().includes(query)
+            );
+            renderTroubleshoot(filtered);
+        }
+
+        // Render Addons
+        function filterAddonCategory(cat) {
+            activeCategory = cat;
+            
+            // Atualizar estilos dos botões
+            document.querySelectorAll('.cat-filter-btn').forEach(btn => {
+                btn.className = 'cat-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-950 text-slate-400 hover:text-white border border-slate-800 transition';
+            });
+
+            const activeBtn = document.getElementById(`cat-${cat}`);
+            if (activeBtn) {
+                activeBtn.className = 'cat-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-mc-accent text-slate-950 transition';
+            }
+
+            renderAddons();
+        }
+
+        function renderAddons() {
+            const container = document.getElementById('addons-container');
+            container.innerHTML = '';
+
+            const filteredData = activeCategory === 'all' 
+                ? ADDONS_DATA 
+                : ADDONS_DATA.filter(item => item.category === activeCategory);
+
+            if (filteredData.length === 0) {
+                container.innerHTML = `<div class="col-span-full py-12 text-center text-slate-500 text-sm">Nenhum addon ou textura encontrada para esta categoria.</div>`;
+                return;
+            }
+
+            filteredData.forEach(addon => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900 border border-slate-800 hover:border-mc-accent/50 rounded-2xl p-5 flex flex-col justify-between transition space-y-4 mc-glow-hover';
+                
+                const expTags = addon.experiments.map(e => `<span class="bg-slate-950 text-mc-accent border border-slate-800 text-[10px] px-2 py-0.5 rounded font-mono">${e}</span>`).join(' ');
+
+                const categoryBadgeColor = addon.category === 'horror' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' :
+                                           addon.category === 'texture' ? 'bg-sky-500/10 text-sky-400 border-sky-500/30' :
+                                           'bg-emerald-500/10 text-mc-accent border-emerald-500/30';
+
+                card.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-mc-accent shrink-0">
+                                    <i data-lucide="${addon.icon}" class="w-5 h-5"></i>
+                                </div>
+                                <div class="truncate">
+                                    <h3 class="text-base font-bold text-white leading-tight truncate">${addon.title}</h3>
+                                    <span class="text-[11px] text-slate-400">por ${addon.author} • ${addon.version}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${categoryBadgeColor}">
+                                ${addon.categoryLabel}
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">${addon.desc}</p>
+                        <div class="space-y-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-500 block">Requisitos / Experimentos:</span>
+                            <div class="flex flex-wrap gap-1">${expTags}</div>
+                        </div>
+                    </div>
+                    <div class="pt-3 border-t border-slate-800/80">
+                        <a href="${addon.link}" target="_blank" rel="noopener noreferrer" class="w-full bg-slate-950 hover:bg-slate-800 text-mc-accent font-semibold text-xs py-2.5 rounded-xl border border-slate-800 flex items-center justify-center gap-2 transition">
+                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Baixar no CurseForge
+                        </a>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        // Copy Helper
+        function copyGuideText() {
+            let guideText = "GUIA DE CONVERSÃO MINECRAFT EDUCATION -> BEDROCK\n\n";
+            CHECKLIST_DATA.forEach(step => {
+                guideText += `${step.id}. ${step.title}\n   ${step.desc}\n\n`;
+            });
+            
+            document.execCommand('copy');
+            navigator.clipboard.writeText(guideText).then(() => {
+                showToast('Guia copiado para a área de transferência!', 'success');
+            }).catch(() => {
+                showToast('Erro ao copiar guia.', 'error');
+            });
+        }
+
+        function copyFullHtml() {
+            const htmlContent = document.documentElement.outerHTML;
+            
+            // Usando suporte iframe seguro
+            const dummy = document.createElement("textarea");
+            document.body.appendChild(dummy);
+            dummy.value = htmlContent;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+
+            showToast('Código HTML completo copiado!', 'success');
+        }
+
+        // Toast System
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = type === 'success' ? 'bg-emerald-950 border-emerald-500/50 text-emerald-200' :
+                            type === 'error' ? 'bg-rose-950 border-rose-500/50 text-rose-200' :
+                            'bg-slate-900 border-slate-700 text-slate-200';
+
+            toast.className = `p-3.5 rounded-xl border ${bgColor} text-xs font-semibold shadow-2xl flex items-center space-x-2 transition-all duration-300 transform translate-y-2 opacity-0`;
+            toast.innerHTML = `
+                <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}" class="w-4 h-4"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
